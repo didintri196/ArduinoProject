@@ -11,8 +11,30 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <Ethernet.h>
+#include "RS485_protocol.h"
+#include <SoftwareSerial.h>
+SoftwareSerial rs485 (2, 3);
 
+const byte ENABLE_PIN = 4;
 
+// callback routines
+  
+void fWrite (const byte what)
+  {
+  rs485.write (what);  
+  }
+  
+int fAvailable ()
+  {
+  return rs485.available ();  
+  }
+
+int fRead ()
+  {
+  return rs485.read ();  
+  }
+
+  
 //WIRELESS
 RF24 radio(7, 8); // CE, CSN
 const byte address[6] = "0001";
@@ -34,6 +56,10 @@ EthernetClient myEthernet;
 
 
 void setup() {
+  rs485.begin(28800);
+  pinMode(ENABLE_PIN, OUTPUT);  // driver output enable
+//  pinMode(LED_PIN, OUTPUT);
+  
   Serial.begin(9600);
   Serial.println("Starting Engine...");
   // ETHERNET
@@ -64,14 +90,49 @@ void setup() {
   delay(1000);
   Serial.println("Setting Perangkat selesai!");
   Serial.println("--------------------------------------------------");
-  
+
+
+
+
 }
 
 void loop() {
   func_wireless();
   
   if(stgetcommand==true){
-    getcommand();
+    String leddata="";
+    leddata=getcommand();
+    //Serial.print(leddata+"SSS");
+    String command=getValue(leddata,'|',0);
+   
+    if(command=="LED"){
+      int addrs_led=getValue(leddata,'|',1).toInt();
+      String tipeantrian=getValue(leddata,'|',2);
+      int digit_1=getValue(leddata,'|',3).toInt();
+      int digit_2=getValue(leddata,'|',4).toInt();
+      int digit_3=getValue(leddata,'|',5).toInt();
+      // assemble message
+      char as='-';
+      Serial.println(tipeantrian);
+      if(tipeantrian=="A"){
+        as='A';
+      }else if(tipeantrian=="B"){
+        as='B';
+      }
+//      Serial.println(noantrian.c_str());
+//      Serial.println(testss);
+        byte msg [] = { 
+           addrs_led,    // device 1
+           as,    // HURUF
+           digit_1,
+           digit_2,
+           digit_3
+        };
+        // send to slave  
+        digitalWrite (ENABLE_PIN, HIGH);  // enable sending
+        sendMsg (fWrite, msg, sizeof msg);
+        digitalWrite (ENABLE_PIN, LOW);  // disable sending
+      }
     }
 }
 

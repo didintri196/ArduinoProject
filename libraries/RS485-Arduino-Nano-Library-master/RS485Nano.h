@@ -1,9 +1,9 @@
 #include "Arduino.h"
 #include <SoftwareSerial.h>
 
-const byte RX_PIN = 1;
-const byte TX_PIN = 0;
-const byte ENABLE_PIN = 4;
+const byte RX_PIN = 0;
+const byte TX_PIN = 1;
+const byte ENABLE_PIN = 2;
 
 const int maxMsgLen = 20;
 const int STX = 2;
