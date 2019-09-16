@@ -13,8 +13,21 @@
 #include <Ethernet.h>
 #include "RS485_protocol.h"
 #include <SoftwareSerial.h>
+#include <MD_YX5300.h>
 SoftwareSerial rs485 (2, 3);
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
 
+//LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+
+// Connections for serial interface to the YX5300 module
+const uint8_t ARDUINO_RX = 18;    // connect to TX of MP3 Player module
+const uint8_t ARDUINO_TX = 19;    // connect to RX of MP3 Player module
+
+// Define global variables
+MD_YX5300 mp3(ARDUINO_RX, ARDUINO_TX);
+
+const int buzzer = 31; //buzzer to arduino pin 31
 const byte ENABLE_PIN = 4;
 
 // callback routines
@@ -43,7 +56,7 @@ const byte address_client[6] = "0002";
 //ETHERNET
 #define STATUS_CONNECTED 1
 #define STATUS_DISCONNECTED 0
-char namaServer[] = "10.42.0.1";
+char namaServer[] = "10.10.10.10";
 byte IP_eth[] = {10,42,0,2};
 byte MAC_eth[] = {0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
 int counter = 0;
@@ -56,12 +69,17 @@ EthernetClient myEthernet;
 
 
 void setup() {
+  //lcd.init();                      // initialize the lcd 
+  //lcd.init();
+  //lcd.backlight();
   rs485.begin(28800);
   pinMode(ENABLE_PIN, OUTPUT);  // driver output enable
 //  pinMode(LED_PIN, OUTPUT);
-  
+  pinMode(buzzer, OUTPUT); // Set buzzer
   Serial.begin(9600);
   Serial.println("Starting Engine...");
+//  lcd.setCursor(0,0);
+//  lcd.print("Starting Engine");
   // ETHERNET
   Serial.println("--------------------------------------------------"); 
   Serial.println("Setting Perangkat");
@@ -70,14 +88,20 @@ void setup() {
   Serial.println("Mohon menunggu . . . ");
   if (Ethernet.begin(MAC_eth) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
-    Ethernet.begin(MAC_eth,IP_eth);
+    beep("ERROR");
+    //Ethernet.begin(MAC_eth,IP_eth);
+    
   }
   // print your local IP address:
   Serial.print("My IP address: ");
+    
   for (byte thisByte = 0; thisByte < 4; thisByte++) {
     Serial.print(Ethernet.localIP()[thisByte], DEC);
     Serial.print("."); 
   }
+
+  
+  
   // WIRELESS
   Serial.println();
   Serial.print("Setting Module Wireless");
@@ -90,15 +114,21 @@ void setup() {
   delay(1000);
   Serial.println("Setting Perangkat selesai!");
   Serial.println("--------------------------------------------------");
-
-
+  mp3.begin();
+  mp3.volume(30);
+  beep("OK");
+//  suaraOKE("A",1,19);//ABJAT INDEX FILE MENUJU KE
 
 
 }
 
 void loop() {
   func_wireless();
-  
+ // func_ethernet();
+}
+//FUNGSI ETHERNET
+void func_ethernet(){
+    
   if(stgetcommand==true){
     String leddata="";
     leddata=getcommand();
@@ -132,12 +162,20 @@ void loop() {
         digitalWrite (ENABLE_PIN, HIGH);  // enable sending
         sendMsg (fWrite, msg, sizeof msg);
         digitalWrite (ENABLE_PIN, LOW);  // disable sending
+      }else if(command=="SUARA"){
+      String Abjat=getValue(leddata,'|',1);
+      int digit_1=getValue(leddata,'|',2).toInt();
+      int digit_2=getValue(leddata,'|',3).toInt();
+      // assemble message
+      suaraOKE(Abjat,digit_1,digit_2);
       }
     }
 }
 
+
 //FUNGSI WIRELESS
 void func_wireless(){
+  Serial.println("ASA");
       if (radio.available()) {
       char text_recv[32] = "";
       String text_send = "PRINT|B-001|12-02-2019";
@@ -147,10 +185,6 @@ void func_wireless(){
       //Serial.println(text_recv);
       radio.stopListening();
       //POST KE SERVER WEB
-//      String data_recv;
-//      data_recv=text_recv;
-      //delay(2000);
-      //Serial.println(resp+"SDSDSD");
       text_send=sendcommand(text_recv);
       radio.write(text_send.c_str(), text_send.length());
       // Now, resume listening so we catch the next packets.
@@ -225,10 +259,11 @@ String kirimData(String a){
   String data = " Arduino";
   int ln = data.length();
   String uri_segment;
-  uri_segment = "/PUSKESMAS_FIX/DDSC/postcommand?cmd=" + a; 
+  uri_segment = "/html/DDSC/postcommand?cmd=" + a; 
   myEthernet.print("GET ");
   myEthernet.print(uri_segment); 
   //delay(1000);
+  Serial.println(uri_segment);
   Serial.print("Data yang dikirim di ke server : ");
   Serial.println(a);
   myEthernet.println(" HTTP/1.0");
@@ -303,3 +338,103 @@ String bacaWebText(){
 }
 
 ///END ETHERNET
+
+//SUARA
+
+void suaraOKE(String AbjatString,uint32_t Bilangan,uint32_t Menujuke)
+{
+  uint32_t Abjat=0;
+  if(AbjatString=="A"){
+    Abjat=18;
+    }else if(AbjatString=="B"){
+    Abjat=19;
+    }
+  mp3.playTrack(23);
+  delay(2000);
+  mp3.playTrack(16);
+  delay(1000);
+  mp3.playTrack(Abjat);
+  delay(200);
+
+  if(Bilangan < 100)
+  {
+     suaraPuluhan(Bilangan);
+   
+  }
+  else if(Bilangan < 1000)
+  {
+     suaraRatusan(Bilangan);
+  }
+   mp3.playTrack(17);//MENUJU KE
+   delay(900);
+   mp3.playTrack(Menujuke);
+   delay(1000);
+  
+}
+
+
+void suaraPuluhan(uint8_t Bilangan)
+{
+  if(Bilangan < 12)
+  {
+    mp3.playTrack(Bilangan);
+    delay(300);
+  }
+  else if(Bilangan < 20)
+  {
+    mp3.playTrack(Bilangan-10);
+    delay(300);
+    mp3.playTrack(12);//BELAS
+    delay(300);
+  //Serial.print("BELAS");
+  }
+  else
+  {
+    uint8_t puluhan = Bilangan/10;
+    mp3.playTrack(puluhan);
+    delay(300);
+    mp3.playTrack(14);//PULUH
+    delay(300);
+    puluhan *= 10;
+    if(Bilangan - puluhan != 0)
+    {
+      mp3.playTrack((Bilangan - puluhan));
+      delay(300);
+    }
+  }
+}
+
+void suaraRatusan(uint16_t Bilangan)
+{
+  uint8_t ratusan = (uint8_t)(Bilangan/100);
+  if(ratusan == 1)
+  {
+    mp3.playTrack(13);//SERATUS
+    delay(300);
+  }
+  else
+  {
+    mp3.playTrack(ratusan);
+    delay(300);
+    mp3.playTrack(15);//RATUS
+    delay(300);
+  }
+  if(Bilangan % 100)
+  {
+    suaraPuluhan(Bilangan - (ratusan*100));
+  }
+}
+
+void beep(String status){
+  if(status=="OK"){
+    tone(buzzer, 4000); // Send 1KHz sound signal...
+    delay(100);        // ...for 1 sec
+    noTone(buzzer);     // Stop sound...
+    tone(buzzer, 4000); // Send 1KHz sound signal...
+    delay(200);        // ...for 1 sec
+    noTone(buzzer);        // ...for 1sec
+    }else if(status=="ERROR"){
+    tone(buzzer, 4000); // Send 1KHz sound signal...
+    }
+  
+  }

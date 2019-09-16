@@ -26,9 +26,9 @@ int fRead ()
 
 void setup()
 {
-  rs485.begin (28800);
-  pinMode (ENABLE_PIN, OUTPUT);  // driver output enable
-  pinMode (LED_PIN, OUTPUT);  // built-in LED
+  rs485.begin(28800);
+  pinMode(ENABLE_PIN, OUTPUT);  // driver output enable
+  pinMode(LED_PIN, OUTPUT);  // built-in LED
 
 
 

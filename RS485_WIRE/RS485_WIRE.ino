@@ -5,7 +5,7 @@
 
 SoftwareSerial rs485 (0, 1);  // receive pin, transmit pin
 const byte ENABLE_PIN = 2;
-
+int clientid=5;
 String data="";
 void fWrite (const byte what)
   {
@@ -19,7 +19,7 @@ int fAvailable ()
 
 int fRead ()
   {
-  return rs485.read ();  
+  return rs485.read();  
   }
   
 void setup()
@@ -39,7 +39,7 @@ void loop()
   
   if (received)
     {
-    if (buf [0] == 1){
+    if (buf [0] == clientid){
         Serial.print(char(buf[1]));
         Serial.print(buf[2]);
         Serial.print(buf[3]);
