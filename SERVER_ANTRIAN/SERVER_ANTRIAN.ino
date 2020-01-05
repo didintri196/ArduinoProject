@@ -18,7 +18,7 @@ SoftwareSerial rs485 (2, 3);
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-//LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27,20,4);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // Connections for serial interface to the YX5300 module
 const uint8_t ARDUINO_RX = 18;    // connect to TX of MP3 Player module
@@ -48,10 +48,6 @@ int fRead ()
   }
 
   
-//WIRELESS
-RF24 radio(7, 8); // CE, CSN
-const byte address[6] = "0001";
-const byte address_client[6] = "0002";
 
 //ETHERNET
 #define STATUS_CONNECTED 1
@@ -70,48 +66,46 @@ EthernetClient myEthernet;
 
 void setup() {
   //lcd.init();                      // initialize the lcd 
-  //lcd.init();
-  //lcd.backlight();
+  lcd.init();
+  lcd.backlight();
   rs485.begin(28800);
   pinMode(ENABLE_PIN, OUTPUT);  // driver output enable
 //  pinMode(LED_PIN, OUTPUT);
   pinMode(buzzer, OUTPUT); // Set buzzer
   Serial.begin(9600);
   Serial.println("Starting Engine...");
-//  lcd.setCursor(0,0);
-//  lcd.print("Starting Engine");
+  lcd.setCursor(0,0);
+  lcd.print("Starting Engine");
   // ETHERNET
   Serial.println("--------------------------------------------------"); 
   Serial.println("Setting Perangkat");
-  Serial.println("Mohon menunggu . . . ");
+  lcd.setCursor(0,0);
+  lcd.print("Setting...      ");
+  Serial.println("Tunggu . . . ");
   Serial.println("Setting Ethernet MAC Address dan IP Address");
   Serial.println("Mohon menunggu . . . ");
   if (Ethernet.begin(MAC_eth) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
+    lcd.setCursor(0,0);
+    lcd.print("ERROR LAN...");
     beep("ERROR");
     //Ethernet.begin(MAC_eth,IP_eth);
     
+  }else{
+    lcd.setCursor(0,0);
+    lcd.print("SERVER :RUNNING ");
   }
   // print your local IP address:
   Serial.print("My IP address: ");
-    
+   lcd.setCursor(0,1);
+   lcd.print("IP:");
   for (byte thisByte = 0; thisByte < 4; thisByte++) {
+    lcd.print(Ethernet.localIP()[thisByte], DEC);
+    lcd.print(".");
     Serial.print(Ethernet.localIP()[thisByte], DEC);
     Serial.print("."); 
   }
 
-  
-  
-  // WIRELESS
-  Serial.println();
-  Serial.print("Setting Module Wireless");
-  radio.begin();
-  radio.openWritingPipe(address_client);
-  radio.openReadingPipe(0, address);
-  radio.setPALevel(RF24_PA_MIN);
-  radio.startListening();
-  Serial.println("....OK");
-  delay(1000);
   Serial.println("Setting Perangkat selesai!");
   Serial.println("--------------------------------------------------");
   mp3.begin();
@@ -123,8 +117,8 @@ void setup() {
 }
 
 void loop() {
-  func_wireless();
- // func_ethernet();
+  //func_wireless();
+  func_ethernet();
 }
 //FUNGSI ETHERNET
 void func_ethernet(){
@@ -133,6 +127,8 @@ void func_ethernet(){
     String leddata="";
     leddata=getcommand();
     //Serial.print(leddata+"SSS");
+    //lcd.setCursor(-4,2);
+    //lcd.print("CMD :"+leddata);
     String command=getValue(leddata,'|',0);
    
     if(command=="LED"){
@@ -173,32 +169,6 @@ void func_ethernet(){
 }
 
 
-//FUNGSI WIRELESS
-void func_wireless(){
-  Serial.println("ASA");
-      if (radio.available()) {
-      char text_recv[32] = "";
-      String text_send = "PRINT|B-001|12-02-2019";
-      while (radio.available()) {
-           radio.read(&text_recv, sizeof(text_recv));
-      }
-      //Serial.println(text_recv);
-      radio.stopListening();
-      //POST KE SERVER WEB
-      text_send=sendcommand(text_recv);
-      radio.write(text_send.c_str(), text_send.length());
-      // Now, resume listening so we catch the next packets.
-      radio.startListening();
-  
-      // Tell the user what we sent back (the random numer + 1)
-      Serial.print("received: ");
-      Serial.print(text_recv);
-      Serial.print(". Sent response ");
-      Serial.println(text_send);
-      
-    }
-  }
-  
 //FUNGSI EXPLODE
 String getValue(String data, char separator, int index)
 {
@@ -259,6 +229,10 @@ String kirimData(String a){
   String data = " Arduino";
   int ln = data.length();
   String uri_segment;
+  lcd.setCursor(-4,2);
+  lcd.print("                ");
+  lcd.setCursor(-4,2);
+  lcd.print("CMD :"+a);
   uri_segment = "/html/DDSC/postcommand?cmd=" + a; 
   myEthernet.print("GET ");
   myEthernet.print(uri_segment); 
@@ -268,7 +242,7 @@ String kirimData(String a){
   Serial.println(a);
   myEthernet.println(" HTTP/1.0");
   myEthernet.print( "Host: " );
-  myEthernet.println(" 10.42.0.1 \r\n");
+  myEthernet.println(" 10.10.10.10 \r\n");
   Serial.println("Host OK");
   myEthernet.println( "Content-Type: application/x-www-form-urlencoded \r\n" );
   Serial.println("Content type OK");
@@ -282,6 +256,10 @@ String kirimData(String a){
   if(!res.equals("")){
     Serial.println("PERINTAH DARI SERVER.");
     Serial.println(res);
+    lcd.setCursor(-4,3);
+    lcd.print("                ");
+    lcd.setCursor(-4,3);
+    lcd.print(">"+res);
   }
   return res;
 }
@@ -346,13 +324,20 @@ void suaraOKE(String AbjatString,uint32_t Bilangan,uint32_t Menujuke)
   uint32_t Abjat=0;
   if(AbjatString=="A"){
     Abjat=18;
+//     if(Menujuke==22){
+//      Menujuke=24;
+//      }
     }else if(AbjatString=="B"){
     Abjat=19;
+//      if(Menujuke==22){
+//      Menujuke=25;
+//      }
     }
   mp3.playTrack(23);
   delay(2000);
   mp3.playTrack(16);
   delay(1000);
+ 
   mp3.playTrack(Abjat);
   delay(200);
 
@@ -368,6 +353,10 @@ void suaraOKE(String AbjatString,uint32_t Bilangan,uint32_t Menujuke)
    mp3.playTrack(17);//MENUJU KE
    delay(900);
    mp3.playTrack(Menujuke);
+   delay(900);
+   if(Menujuke==22){
+      mp3.playTrack(Abjat);
+      }
    delay(1000);
   
 }

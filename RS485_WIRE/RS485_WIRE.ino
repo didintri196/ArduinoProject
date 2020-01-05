@@ -4,8 +4,8 @@
 #include "RS485_protocol.h"
 
 SoftwareSerial rs485 (0, 1);  // receive pin, transmit pin
-const byte ENABLE_PIN = 2;
-int clientid=5;
+const byte ENABLE_PIN = 8;
+int clientid=8;
 String data="";
 void fWrite (const byte what)
   {
@@ -49,7 +49,7 @@ void loop()
         data+=buf[2];
         data+=buf[3];
         data+=buf[4];
-        delay (1);  // give the master a moment to prepare to receive
+        delay(1);  // give the master a moment to prepare to receive
         //String data="B|001";
         Serial.println(data);
         Wire.beginTransmission(1);
@@ -57,6 +57,11 @@ void loop()
         Wire.endTransmission();
         //delay(500);
       }
+      
    }  // end if something received
-   
+//   data="B|001";
+//      Serial.println(data);
+//        Wire.beginTransmission(1);
+//        Wire.write(data.c_str());
+//        Wire.endTransmission();
 }  // end of loop

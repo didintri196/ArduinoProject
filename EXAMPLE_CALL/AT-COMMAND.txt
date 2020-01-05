@@ -1,0 +1,4 @@
+http://domarku.blogspot.com/2013/02/perintah-at-command-mengirim-dan.html //ARDUINO SMS
+AT+CUSD=1,"*171*6*1*1*123456#" //ARDUINO DIAL
+
+AT+CUSD=1,"*171*6*1*1*123456#"

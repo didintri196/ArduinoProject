@@ -9,17 +9,25 @@
 
 #include <SPI.h>
 #include <nRF24L01.h>
-#include <RF24.h>
 #include "thermalprinter.h"
 
 int buttonPinA = 2;//A
 int buttonPinB = 3;//B
 bool stprint = true;
-//WIRELESS
-RF24 radio(7, 8); // CE, CSN
 
-const byte address[6] = "0002";
-const byte address_server[6] = "0001";
+//WIRELESS
+#define RX 8
+#define TX 9
+String AP = "WIFI_LOKET";
+String PASS = "11001100";
+String PORT = "80";
+int countTrueCommand;
+int countTimeCommand; 
+boolean found = false; 
+char inString[32];
+boolean startRead = false; 
+String HOST = "10.10.10.10";
+
 
 //SETTING PRINTER
 #define rxPin 5
@@ -28,32 +36,40 @@ const byte address_server[6] = "0001";
 int printStatus = 0;
 
 bool cek = false;
-
+//delay(3000);
 Epson TM88 = Epson(rxPin, txPin); // init the Printer with Output-Pin
-
+SoftwareSerial ESP8266(RX,TX); 
 
 void setup() {
   //delay(3000);
+  TM88.start();
   Serial.begin(9600);
+  ESP8266.begin(9600);
   Serial.println("Starting engine");
   pinMode(buttonPinB, INPUT_PULLUP);
   pinMode(buttonPinA, INPUT_PULLUP);
-  //SETTING WIRELLESS
-  radio.begin();
-  radio.openWritingPipe(address_server);
-  radio.openReadingPipe(1, address);
-  radio.setPALevel(RF24_PA_MIN);
-  radio.stopListening();
+  sendCommand("AT+CWMODE=1",5,"OK");
+  String resp = sendCommand("AT+CWJAP=\""+ AP +"\",\""+ PASS +"\"",20,"OK");
+  if(resp == "OK"){
+    cek = true;
+      printtikettext("SUKSES KONEK WIFI");
+    }else{
+      printtikettext("GAGAL KONEK WIFI");
+    }
   //SETTING PRINTER
-  TM88.start();
-  TM88.feed(5);
-  TM88.cut();
+  //TM88.start();
+//  TM88.feed(5);
+//  TM88.cut();
 }
 
 void loop() {
   if(cek == false){
-    Serial.println("Mencoba konek server");
-      cek_konek();
+    Serial.println("Mencoba konek wifi");
+    String resp = sendCommand("AT+CWJAP=\""+ AP +"\",\""+ PASS +"\"",20,"OK");
+    if(resp == "OK"){
+      cek = true;
+      printtikettext("SUKSES KONEK WIFI");
+      }
     }
   //A PRESSED
   int buttonValueA = digitalRead(buttonPinA);
@@ -90,88 +106,6 @@ void loop() {
    }
 }
 
-void buatkarcis(String tipe) {
-  radio.stopListening();
-  String query = "CREATE|"+tipe;
-  //radio.write(&text, sizeof(text));
-  if (!radio.write(query.c_str(), query.length())) {
-    Serial.println("No acknowledgement of transmission - receiving radio device connected?");    
-  }
-
-   // Now listen for a response
-  radio.startListening();
-
-  unsigned long started_waiting_at = micros();               // Set up a timeout period, get the current microseconds
-    boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
-    
-    while ( ! radio.available() ){                             // While nothing is received
-//      if (micros() - started_waiting_at > 500000 ){            // If waited longer than 200ms, indicate timeout and exit while loop
-//          timeout = true;
-//          break;
-//      }      
-    }
-        
-    if ( timeout ){                                             // Describe the results
-        Serial.println(F("Failed, response timed out."));
-    }else{
-         // Now read the data that is waiting for us in the nRF24L01's buffer
-  char text_recv[32] = "";
-  radio.read( &text_recv, sizeof(text_recv) );
-
-  // Show user what we sent and what we got back
-  Serial.print("Sent: ");
-  Serial.print(query);
-  Serial.print(", received: ");
-  Serial.println(text_recv);
-  String recv_string=text_recv;
-  if(recv_string!=""){
-      
-      Serial.println("CETAK KARCIS");
-    
-      //PARSING TIKET
-      String nomor=getValue(recv_string,'|',1);
-      String tanggal=getValue(recv_string,'|',2);
-      
-      printtiket(nomor,tanggal);
-      delay(3000);
-    }
-    }
-
-  
-
-}
-
-
-void printtiket(String nomor,String tanggal){
-    TM88.start();
-    TM88.justifyCenter();
-    TM88.doubleHeightOn();
-    TM88.println("UPTD PUSKESMAS KANDANGAN"); 
-    TM88.doubleHeightOff();
-    TM88.println("Jl. Malang No.109, Kandangan, Kec. Kandangan, Kediri, Jawa Timur 64294"); 
-    TM88.feed(1);
-    TM88.setSize(60);
-    TM88.println(nomor);    
-    TM88.reset();  
-    TM88.println(tanggal);
-    TM88.feed(1);  
-    
-    TM88.justifyRight();
-    TM88.println("*Tiket dibawa ke loket");  
-    TM88.feed(1);
-    TM88.cut();  
-  }
-
-void printtiketkonek(){
-    TM88.start();
-    TM88.feed(4);
-    TM88.justifyCenter();
-    TM88.setSize(60);
-    TM88.println("SUKSES KONEK SERVER");  
-    TM88.feed(5);
-    TM88.cut();  
-  }
-
 //FUNGSI EXPLODE
 String getValue(String data, char separator, int index)
 {
@@ -189,47 +123,163 @@ String getValue(String data, char separator, int index)
     return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-
-
-void cek_konek(){
-  radio.stopListening();
-  String query = "TEST";
-      //radio.write(&text, sizeof(text));
-      if (!radio.write(query.c_str(), query.length())) {
-        Serial.println("No acknowledgement of transmission - receiving radio device connected?");    
-      }
-      radio.startListening();
-
-  unsigned long started_waiting_at = micros();               // Set up a timeout period, get the current microseconds
-    boolean timeout = false;                                   // Set up a variable to indicate if a response was received or not
+void printtiket(String nomor,String tanggal){
     
-    while ( ! radio.available() ){                             // While nothing is received
-      if (micros() - started_waiting_at > 500000 ){            // If waited longer than 200ms, indicate timeout and exit while loop
-          timeout = true;
-          break;
-      }      
-    }
-        
-    if ( timeout ){                                             // Describe the results
-        Serial.println(F("Failed, response timed out."));
-    }else{
-         // Now read the data that is waiting for us in the nRF24L01's buffer
-  char text_recv[32] = "";
-  radio.read( &text_recv, sizeof(text_recv) );
+    TM88.justifyCenter();
+    TM88.doubleHeightOn();
+    TM88.println("UPTD PUSKESMAS KANDANGAN"); 
+    TM88.doubleHeightOff();
+    TM88.println("Jl. Malang No.109, Kandangan, Kec. Kandangan, Kediri, Jawa Timur 64294"); 
+    TM88.feed(1);
+    TM88.setSize(60);
+    TM88.println(nomor);    
+    TM88.reset();  
+    TM88.println(tanggal);
+    TM88.feed(1);  
+    
+    TM88.justifyRight();
+    TM88.println("*Tiket dibawa ke loket");  
+    TM88.feed(1);
+    TM88.cut(); 
+//    TM88.end(); 
+  }
 
-  // Show user what we sent and what we got back
-  Serial.print("Sent: ");
-  Serial.print(query);
-  Serial.print(", received: ");
-  Serial.println(text_recv);
-  String recv_string=text_recv;
+void printtikettext(String message){
+    //TM88.start();
+    TM88.feed(4);
+    TM88.justifyCenter();
+    TM88.setSize(60);
+    TM88.println(message);  
+    TM88.feed(5);
+    TM88.cut();  
+  }
+
+void printResponse() {
+  while (ESP8266.available()) {
+    Serial.println(ESP8266.readStringUntil('\n')); 
+  }
+}
+
+
+ 
+String bacaWebText(){
+  unsigned int time;
+  Serial.println("Baca respon dari server . . . "); 
+  Serial.println("Mohon menunggu . . . ");
+  //time = millis();
+  //Serial.print("Timer Millis () : ");
+  //Serial.println(time);
+  int stringPos = 0;
+  memset( &inString, 0, 32 );
+  int unvailable_ctr = 0;
+  while(true){
+    if (ESP8266.available()) {
+      char c = ESP8266.read();
+      Serial.print(c);
+      if (c == '#' ) { 
+        Serial.print("Menemukan start key # dengan isi : ");
+        startRead = true;  
+      }
+      else if(startRead){
+        if(c != '^'){ 
+          inString[stringPos] = c;
+          stringPos ++;
+        }else{
+          startRead = false;
+          Serial.println();
+          Serial.println("Baca respon dari server selesai!");
+          Serial.println("Sambungan diputuskan . . . ");
+          return inString;
+        }
+      }
+    }
+    else{
+      //Serial.println("ethernet unavailable");
+      delay(50);
+      unvailable_ctr++;
+      if(unvailable_ctr == 25){
+        Serial.println("Koneksi mengalami time out");
+        Serial.println("Sambungan diputuskan . . . ");
+        Serial.println("Reset...");
+        return inString;
+      }
+    }
+  }
+  //delay(1000);
+}
+
+
+void buatkarcis(String tipe) {
+  sendCommand("AT+CIPMUX=1",5,"OK");
+    //ESP8266.println("AT+CIPMUX=1");
+    //delay(500);
+    //printResponse();
+
+    ESP8266.println("AT+CIPSTART=4,\"TCP\",\""+HOST+"\",80");
+    delay(500);
+    //printResponse();
+    String uri_segment = "/html/DDSC/postcommand?cmd=CREATE|" + tipe; 
+    String cmd = "GET "+uri_segment+" HTTP/1.1\r\nHost: "+HOST+"\r\nConnection: close\r\n\r\n";
+    ESP8266.println("AT+CIPSEND=4," + String(cmd.length() + 4));
+    delay(100);
+
+    ESP8266.println(cmd);
+    ESP8266.println(""); 
+ // }
+
+//  if (ESP8266.available()) {
+//    Serial.write(ESP8266.read());
+//  }
+  String recv_string = bacaWebText();
+//  Serial.println(hasil);
+//  String recv_string="";
   if(recv_string!=""){
       
-      Serial.println("CETAK");
-      printtiketkonek();
-      cek=true;
-      delay(3000);
+      Serial.println("CETAK KARCIS");
+    
+      //PARSING TIKET
+      String nomor=getValue(recv_string,'|',1);
+      String tanggal=getValue(recv_string,'|',2);
+      
+      printtiket(nomor,tanggal);
+     // delay(3000);
     }
+
+}
+
+String sendCommand(String command, int maxTime, char readReplay[]) {
+  Serial.print(countTrueCommand);
+  Serial.print(". at command => ");
+  Serial.print(command);
+  Serial.print(" ");
+  while(countTimeCommand < (maxTime*1))
+  {
+    ESP8266.println(command);//at+cipsend
+    if(ESP8266.find(readReplay))//ok
+    {
+      found = true;
+      break;
     }
-  
+
+    countTimeCommand++;
   }
+  String Message="";
+  if(found == true)
+  {
+    Serial.println("OYI");
+    Message="OK";
+    countTrueCommand++;
+    countTimeCommand = 0;
+  }
+
+  if(found == false)
+  {
+    Serial.println("Fail");
+   Message="ERR";
+    countTrueCommand = 0;
+    countTimeCommand = 0;
+  }
+
+  found = false;
+  return Message;
+ }

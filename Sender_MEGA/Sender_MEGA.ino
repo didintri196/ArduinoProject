@@ -2,10 +2,10 @@
 #include "RS485_protocol.h"
 #include <SoftwareSerial.h>
 
-const byte ENABLE_PIN = 4;
+const byte ENABLE_PIN = 2;
 const byte LED_PIN = 13;
 
-SoftwareSerial rs485 (2, 3);  // receive pin, transmit pin
+SoftwareSerial rs485 (0, 1);  // receive pin, transmit pin
 
 // callback routines
   
@@ -34,11 +34,11 @@ void setup()
 
     // assemble message
   byte msg [] = { 
-     1,    // device 1
+     7,    // device 1
      'B',    // HURUF
      7,
-     0,
-     5
+     9,
+     9
   };
 
   // send to slave  

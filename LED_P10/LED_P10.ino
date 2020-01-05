@@ -19,14 +19,15 @@ void setup() {
   Wire.onReceive(receiveEvent);
   Serial.begin(9600);
   Serial.println("Starting Engine...");
-
-  //LED
+//
+//  //LED
   dmd.setBrightness(255); // Set brightness 0 - 255 
   dmd.selectFont(Arial_Black_16); // Font used
   dmd.begin();     // Start DMD 
   dmd.fillScreen(true);
   delay(500);
   dmd.clearScreen();
+  //box2.print('T');
 }
 void loop() {
   box2.print(val1); // Display TEXT SFE
